@@ -2,357 +2,392 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calendario Colombia - Premium</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <!-- SEO TÉCNICO -->
+    <title>Calendario Colombia 2026 - Festivos, Puentes y Fechas Especiales</title>
+    <meta name="description" content="Calendario interactivo de Colombia para el año 2026. Incluye festivos oficiales (Ley Emiliani), Semana Santa, Día de la Madre, Padre y Amor y Amistad.">
+    <meta name="keywords" content="calendario colombia 2026, festivos colombia 2026, dias festivos colombia, ley emiliani colombia, puentes festivos 2026">
+    
+    <!-- Datos Estructurados para Google -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Calendario Colombia Interactivo",
+      "operatingSystem": "Web",
+      "applicationCategory": "UtilitiesApplication",
+      "offers": { "@type": "Offer", "price": "0" }
+    }
+    </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        window.tailwind.config = {
+            darkMode: 'class'
+        }
+    </script>
     <style>
+        :root { --ios-red: #ff3b30; --ios-blue: #007aff; }
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #ffffff;
-            color: #000;
+            transition: background-color 0.2s;
             -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            background-color: #ffffff;
+            color: #000000;
         }
+        .dark body { background-color: #000000; color: #ffffff; }
 
-        .year-wrapper {
-            position: relative;
-            display: inline-block;
-        }
-
-        #year-selector {
-            position: absolute;
-            top: 0;
-            left: 0;
+        /* Contenedor de Ancho Máximo para Pantallas Grandes */
+        .app-wrapper {
+            max-width: 1200px;
+            margin: 0 auto;
             width: 100%;
-            height: 100%;
-            opacity: 0;
-            cursor: pointer;
         }
 
-        .holiday-text { color: #ff3b30; font-weight: 600; }
-        
-        .today-circle {
-            background-color: #ff3b30;
-            color: white !important;
-            border-radius: 50%;
-            font-weight: 700;
+        /* Vistas */
+        .view-container { display: none; }
+        .view-active { display: block; animation: fadeIn 0.25s ease-out; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .month-grid {
+        /* Grilla de Año Mejorada para Pantallas Grandes */
+        .year-grid {
+            display: grid;
+            grid-template-columns: repeat(1, 1fr);
+            gap: 2.5rem 1.5rem;
+        }
+        @media (min-width: 480px) { .year-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 768px) { .year-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 1024px) { .year-grid { grid-template-columns: repeat(4, 1fr); } }
+
+        .mini-month-name { font-weight: 700; font-size: 1.15rem; margin-bottom: 0.5rem; }
+        .mini-days-grid { 
+            display: grid; 
+            grid-template-columns: repeat(7, 1fr); 
+            font-size: 0.7rem; 
+            line-height: 1.4rem; 
+            text-align: center; 
+        }
+
+        /* Vista Detallada de Mes */
+        .month-detail-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
             gap: 2px;
-            font-size: 0.75rem;
+            max-width: 500px;
+            margin: 0 auto;
         }
-
         .day-cell {
             aspect-ratio: 1;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: background 0.2s;
+            font-size: 1.35rem;
             border-radius: 50%;
+            position: relative;
         }
 
-        .mini-month:hover .day-cell:not(.empty):not(.today-circle) {
-            background-color: transparent;
-        }
+        /* Indicadores */
+        .text-red { color: var(--ios-red); }
+        .text-blue { color: var(--ios-blue); }
+        .holiday-mark { color: var(--ios-red); font-weight: 700; }
+        .special-mark { color: var(--ios-blue); font-weight: 700; }
+        .today-circle { background-color: var(--ios-red); color: white !important; font-weight: 700; }
 
-        .mini-month:hover h3 {
-            color: #ff3b30;
-        }
-
-        #month-detail-overlay {
+        /* Buscador */
+        #search-overlay {
             display: none;
             position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: white;
-            z-index: 50;
-            overflow-y: auto;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #ffffff;
+            z-index: 100;
         }
+        .dark #search-overlay { background: #000000; }
 
-        .expanded-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 8px;
-            max-width: 450px;
-            margin: 0 auto;
+        /* Botón Hoy */
+        .today-nav {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 40;
         }
-
-        .expanded-day {
-            aspect-ratio: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
-            border-radius: 50%;
-        }
-
-        .weekday-label {
-            color: #8e8e93;
+        .today-btn {
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            border: 0.5px solid rgba(0,0,0,0.05);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+            padding: 0.65rem 2rem;
+            border-radius: 99px;
             font-weight: 600;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            text-align: center;
-            padding-bottom: 12px;
+            color: var(--ios-red);
         }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        .dark .today-btn {
+            background-color: rgba(28, 28, 30, 0.95);
+            border: 0.5px solid rgba(255,255,255,0.1);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
         }
-
-        .animate-fade { animation: fadeIn 0.4s ease-out forwards; }
     </style>
 </head>
-<body class="p-6 md:p-10 pb-24">
+<body class="p-6 md:p-10">
 
-    <!-- Header con el año en Grande y Rojo -->
-    <header class="flex justify-between items-end mb-10 sticky top-0 bg-white/90 backdrop-blur-md py-4 z-10">
-        <div class="year-wrapper">
-            <h1 id="year-display" class="text-5xl md:text-6xl font-bold text-[#ff3b30] tracking-tight">2026</h1>
-            <select id="year-selector" onchange="changeYear(this.value)">
-                <!-- Opciones generadas por JS -->
-            </select>
-        </div>
-        
-        <div class="flex gap-2">
-            <button onclick="changeYear(currentYear - 1)" class="p-2 rounded-full hover:bg-gray-100 text-gray-400">
-                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-            </button>
-            <button onclick="changeYear(currentYear + 1)" class="p-2 rounded-full hover:bg-gray-100 text-gray-400">
-                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-            </button>
-        </div>
-    </header>
-
-    <!-- Grid de Meses (Vista de Año) -->
-    <main id="calendar-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-10 gap-y-12">
-        <!-- Generado por JS -->
-    </main>
-
-    <!-- Overlay de Detalle (Información Ampliada) -->
-    <div id="month-detail-overlay">
-        <div class="p-6">
-            <div class="flex justify-between items-center mb-12 max-w-xl mx-auto">
-                <button onclick="closeDetail()" class="text-[#ff3b30] flex items-center gap-1 font-semibold text-xl">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                    <span id="back-year-label"></span>
-                </button>
-                <h2 id="expanded-month-name" class="text-2xl font-bold"></h2>
-                <div class="w-10"></div>
+    <div class="app-wrapper">
+        <!-- HEADER -->
+        <header class="flex justify-between items-start mb-12 sticky top-0 bg-white/80 dark:bg-black/80 backdrop-blur-md py-4 z-20">
+            <div id="header-nav">
+                <!-- Se llena dinámicamente -->
             </div>
+            <div class="flex gap-4">
+                <button onclick="toggleDarkMode()" class="text-red p-1" aria-label="Cambiar modo">
+                    <svg id="moon-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path></svg>
+                    <svg id="sun-icon" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                </button>
+                <button onclick="showSearch()" class="text-red p-1" aria-label="Buscar">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </button>
+            </div>
+        </header>
 
-            <div id="expanded-view-content" class="animate-fade"></div>
+        <!-- VISTA INICIAL: AÑO -->
+        <main id="view-year" class="view-container view-active">
+            <div id="year-grid" class="year-grid"></div>
+        </main>
 
-            <div id="holiday-list" class="max-w-md mx-auto mt-16 border-t border-gray-100 pt-8 space-y-5"></div>
+        <!-- VISTA: DETALLE DE MES -->
+        <main id="view-month" class="view-container">
+            <h2 id="month-title" class="text-4xl font-bold mb-10 text-center tracking-tight"></h2>
+            <div id="month-calendar" class="month-detail-grid"></div>
+            <div id="holiday-list" class="mt-16 border-t border-gray-100 dark:border-gray-900 pt-10 max-w-lg mx-auto pb-20"></div>
+        </main>
+    </div>
+
+    <!-- BUSCADOR OVERLAY -->
+    <div id="search-overlay" class="fade-in">
+        <div class="app-wrapper p-6">
+            <div class="flex items-center gap-4 mb-8">
+                <input type="text" id="search-input" placeholder="Buscar festivo (ej. Reyes, Madre)..." class="flex-1 bg-gray-100 dark:bg-zinc-900 rounded-2xl px-5 py-4 outline-none dark:text-white text-lg" oninput="searchFestivos(this.value)">
+                <button onclick="hideSearch()" class="text-red font-bold text-lg">Cerrar</button>
+            </div>
+            <div id="search-results" class="space-y-4 overflow-y-auto max-h-[75vh]"></div>
         </div>
     </div>
 
-    <!-- Navegación Tab Bar -->
-    <nav class="fixed bottom-0 left-0 w-full bg-white/80 backdrop-blur-xl border-t border-gray-100 px-10 py-5 flex justify-between items-center z-30">
-        <button onclick="goToToday()" class="text-[#ff3b30] font-bold text-lg flex flex-col items-center">
-            Hoy
-            <span id="today-dot" class="w-1.5 h-1.5 bg-[#ff3b30] rounded-full mt-0.5"></span>
-        </button>
-        <div class="flex gap-10 text-gray-300">
-            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-        </div>
+    <!-- BOTÓN HOY -->
+    <nav class="today-nav">
+        <button onclick="goToToday()" class="today-btn active:scale-95 transition-transform">Hoy</button>
     </nav>
 
     <script>
         let currentYear = new Date().getFullYear();
-        const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        const monthsLong = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        const monthsShort = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
         const weekdays = ["D", "L", "M", "M", "J", "V", "S"];
-        const fullWeekdays = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
-        function getEaster(year) {
-            const a = year % 19, b = Math.floor(year / 100), c = year % 100;
-            const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
-            const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
-            const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
-            const m = Math.floor((a + 11 * h + 22 * l) / 451);
-            const month = Math.floor((h + l - 7 * m + 114) / 31);
-            const day = ((h + l - 7 * m + 114) % 31) + 1;
-            return new Date(year, month - 1, day);
+        // Lógica de Festivos Colombia (Butcher's Algorithm & Emiliani)
+        function getEaster(y) {
+            const a=y%19, b=Math.floor(y/100), c=y%100, d=Math.floor(b/4), e=b%4, f=Math.floor((b+8)/25), g=Math.floor((b-f+1)/3), h=(19*a+b-d-g+15)%30, i=Math.floor(c/4), k=c%4, l=(32+2*e+2*i-h-k)%7, m=Math.floor((a+11*h+22*l)/451);
+            const month=Math.floor((h+l-7*m+114)/31), day=((h+l-7*m+114)%31)+1;
+            return new Date(y, month-1, day);
         }
 
         function getNextMonday(date) {
-            const res = new Date(date);
-            if (res.getDay() === 1) return res;
-            res.setDate(res.getDate() + (1 - res.getDay() + 7) % 7);
-            return res;
+            const d = new Date(date);
+            if (d.getDay() === 1) return d;
+            d.setDate(d.getDate() + (1 - d.getDay() + 7) % 7);
+            return d;
         }
 
-        function getHolidays(year) {
+        function getNthSunday(y, m, n) {
+            let d = new Date(y, m, 1);
+            let count = 0;
+            while(d.getMonth() === m) {
+                if(d.getDay() === 0) {
+                    count++;
+                    if(count === n) return new Date(d);
+                }
+                d.setDate(d.getDate()+1);
+            }
+        }
+
+        function getHolidays(y) {
             const h = {};
-            const easter = getEaster(year);
-            const add = (d, name) => h[`${d.getMonth()}-${d.getDate()}`] = name;
+            const add = (d, n, off=true) => h[`${d.getMonth()}-${d.getDate()}`] = {name: n, official: off};
+            const easter = getEaster(y);
 
-            add(new Date(year, 0, 1), "Año Nuevo");
-            add(new Date(year, 4, 1), "Día del Trabajo");
-            add(new Date(year, 6, 20), "Independencia de Colombia");
-            add(new Date(year, 7, 7), "Batalla de Boyacá");
-            add(new Date(year, 11, 8), "Inmaculada Concepción");
-            add(new Date(year, 11, 25), "Navidad");
+            // Fijos
+            add(new Date(y, 0, 1), "Año Nuevo");
+            add(new Date(y, 4, 1), "Día del Trabajo");
+            add(new Date(y, 6, 20), "Independencia de Colombia");
+            add(new Date(y, 7, 7), "Batalla de Boyacá");
+            add(new Date(y, 11, 8), "Inmaculada Concepción");
+            add(new Date(y, 11, 25), "Navidad");
 
-            add(getNextMonday(new Date(year, 0, 6)), "Reyes Magos");
-            add(getNextMonday(new Date(year, 2, 19)), "San José");
-            add(getNextMonday(new Date(year, 5, 29)), "San Pedro y San Pablo");
-            add(getNextMonday(new Date(year, 7, 15)), "Asunción de la Virgen");
-            add(getNextMonday(new Date(year, 9, 12)), "Día de la Raza");
-            add(getNextMonday(new Date(year, 10, 1)), "Todos los Santos");
-            add(getNextMonday(new Date(year, 10, 11)), "Independencia de Cartagena");
+            // Ley Emiliani
+            add(getNextMonday(new Date(y, 0, 6)), "Reyes Magos");
+            add(getNextMonday(new Date(y, 2, 19)), "San José");
+            add(getNextMonday(new Date(y, 5, 29)), "San Pedro y San Pablo");
+            add(getNextMonday(new Date(y, 7, 15)), "Asunción de la Virgen");
+            add(getNextMonday(new Date(y, 9, 12)), "Día de la Raza");
+            add(getNextMonday(new Date(y, 10, 1)), "Todos los Santos");
+            add(getNextMonday(new Date(y, 10, 11)), "Independencia de Cartagena");
 
-            const jSanto = new Date(easter); jSanto.setDate(easter.getDate() - 3);
-            const vSanto = new Date(easter); vSanto.setDate(easter.getDate() - 2);
-            add(jSanto, "Jueves Santo"); add(vSanto, "Viernes Santo");
-
-            const asc = new Date(easter); asc.setDate(easter.getDate() + 39);
-            const corp = new Date(easter); corp.setDate(easter.getDate() + 60);
-            const heart = new Date(easter); heart.setDate(easter.getDate() + 68);
+            // Religiosos móviles
+            const thurs = new Date(easter); thurs.setDate(easter.getDate()-3);
+            const fri = new Date(easter); fri.setDate(easter.getDate()-2);
+            add(thurs, "Jueves Santo"); add(fri, "Viernes Santo");
+            
+            const asc = new Date(easter); asc.setDate(easter.getDate()+39);
+            const corp = new Date(easter); corp.setDate(easter.getDate()+60);
+            const heart = new Date(easter); heart.setDate(easter.getDate()+68);
             add(getNextMonday(asc), "Ascensión del Señor");
             add(getNextMonday(corp), "Corpus Christi");
             add(getNextMonday(heart), "Sagrado Corazón");
 
+            // Especiales (No festivos)
+            add(getNthSunday(y, 4, 2), "Día de la Madre", false);
+            add(getNthSunday(y, 5, 3), "Día del Padre", false);
+            let sep3 = new Date(y, 8, 1);
+            let satCount = 0; while(sep3.getMonth() === 8) { if(sep3.getDay()===6){satCount++; if(satCount===3) break;} sep3.setDate(sep3.getDate()+1); }
+            add(sep3, "Amor y Amistad", false);
+
             return h;
         }
 
-        function initYearSelector() {
-            const select = document.getElementById('year-selector');
-            const current = new Date().getFullYear();
-            select.innerHTML = '';
-            for (let y = current - 10; y <= current + 10; y++) {
-                const opt = document.createElement('option');
-                opt.value = y; opt.innerText = y;
-                if (y === currentYear) opt.selected = true;
-                select.appendChild(opt);
-            }
-        }
-
-        function changeYear(year) {
-            currentYear = parseInt(year);
-            document.getElementById('year-display').innerText = currentYear;
-            document.getElementById('year-selector').value = currentYear;
-            
-            const isTodayYear = new Date().getFullYear() === currentYear;
-            document.getElementById('today-dot').style.opacity = isTodayYear ? "1" : "0";
-            
-            renderCalendar();
-        }
-
-        function renderCalendar() {
-            const container = document.getElementById('calendar-container');
+        // UI Core
+        function renderYearView() {
+            const container = document.getElementById('year-grid');
             container.innerHTML = '';
             const holidays = getHolidays(currentYear);
             const today = new Date();
 
-            months.forEach((name, mIdx) => {
+            document.getElementById('header-nav').innerHTML = `
+                <div class="relative inline-block">
+                    <h1 class="text-5xl font-bold text-red tracking-tight cursor-pointer">${currentYear}</h1>
+                    <select onchange="currentYear=parseInt(this.value); renderYearView();" class="absolute inset-0 opacity-0 cursor-pointer">
+                        ${Array.from({length:21}, (_,i)=> `<option value="${today.getFullYear()-10+i}" ${today.getFullYear()-10+i === currentYear ? 'selected' : ''}>${today.getFullYear()-10+i}</option>`).join('')}
+                    </select>
+                </div>
+            `;
+
+            monthsShort.forEach((name, mIdx) => {
+                const isCurrentMonth = today.getFullYear() === currentYear && today.getMonth() === mIdx;
                 const monthDiv = document.createElement('div');
-                monthDiv.className = "cursor-pointer group mini-month animate-fade";
-                monthDiv.onclick = () => openDetail(mIdx);
+                monthDiv.className = "cursor-pointer active:opacity-50 transition-opacity";
+                monthDiv.onclick = () => showMonth(mIdx);
+                
+                let html = `<div class="mini-month-name ${isCurrentMonth ? 'text-red' : ''}">${name}</div><div class="mini-days-grid">`;
+                const start = new Date(currentYear, mIdx, 1).getDay();
+                const total = new Date(currentYear, mIdx + 1, 0).getDate();
 
-                const h3 = document.createElement('h3');
-                h3.className = "text-xl font-bold mb-4 transition-colors";
-                h3.innerText = name;
-                monthDiv.appendChild(h3);
-
-                const grid = document.createElement('div');
-                grid.className = "month-grid";
-
-                weekdays.forEach(d => {
-                    grid.innerHTML += `<div class="text-[10px] text-gray-400 font-bold text-center mb-1.5">${d}</div>`;
-                });
-
-                const firstDay = new Date(currentYear, mIdx, 1).getDay();
-                const totalDays = new Date(currentYear, mIdx + 1, 0).getDate();
-
-                for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div class="day-cell empty"></div>`;
-                for (let d = 1; d <= totalDays; d++) {
-                    const isHoliday = holidays[`${mIdx}-${d}`];
-                    const isToday = today.getFullYear() === currentYear && today.getMonth() === mIdx && today.getDate() === d;
-                    grid.innerHTML += `<div class="day-cell ${isHoliday ? 'holiday-text' : ''} ${isToday ? 'today-circle' : ''}">${d}</div>`;
+                for(let i=0; i<start; i++) html += '<div></div>';
+                for(let d=1; d<=total; d++) {
+                    const h = holidays[`${mIdx}-${d}`];
+                    const isToday = isCurrentMonth && today.getDate() === d;
+                    html += `<div class="${isToday ? 'today-circle rounded-full w-4 h-4 flex items-center justify-center mx-auto' : ''} ${h ? (h.official ? 'holiday-mark' : 'special-mark') : ''}">${d}</div>`;
                 }
-
-                monthDiv.appendChild(grid);
+                monthDiv.innerHTML = html + '</div>';
                 container.appendChild(monthDiv);
             });
+
+            switchView('view-year');
         }
 
-        function openDetail(mIdx) {
-            const overlay = document.getElementById('month-detail-overlay');
+        function showMonth(mIdx) {
             const holidays = getHolidays(currentYear);
             const today = new Date();
-
-            document.getElementById('expanded-month-name').innerText = months[mIdx];
-            document.getElementById('back-year-label').innerText = currentYear;
             
-            const content = document.getElementById('expanded-view-content');
-            const hList = document.getElementById('holiday-list');
-            content.innerHTML = '';
-            hList.innerHTML = '';
+            document.getElementById('month-title').innerText = monthsLong[mIdx];
+            document.getElementById('header-nav').innerHTML = `
+                <button onclick="renderYearView()" class="text-red flex items-center gap-1 font-bold text-xl active:opacity-50 transition-opacity">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    ${currentYear}
+                </button>
+            `;
 
-            const grid = document.createElement('div');
-            grid.className = "expanded-grid";
+            const cal = document.getElementById('month-calendar');
+            cal.innerHTML = '';
+            weekdays.forEach(w => cal.innerHTML += `<div class="text-center text-gray-400 font-bold text-xs uppercase py-3">${w}</div>`);
 
-            weekdays.forEach(d => {
-                grid.innerHTML += `<div class="weekday-label">${d}</div>`;
-            });
+            const start = new Date(currentYear, mIdx, 1).getDay();
+            const total = new Date(currentYear, mIdx + 1, 0).getDate();
+            const list = document.getElementById('holiday-list');
+            list.innerHTML = '<h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-8 px-4">Fechas Importantes</h3>';
 
-            const firstDay = new Date(currentYear, mIdx, 1).getDay();
-            const totalDays = new Date(currentYear, mIdx + 1, 0).getDate();
-            const foundHolidays = [];
-
-            for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div></div>`;
-            for (let d = 1; d <= totalDays; d++) {
-                const isHoliday = holidays[`${mIdx}-${d}`];
+            for(let i=0; i<start; i++) cal.innerHTML += '<div></div>';
+            for(let d=1; d<=total; d++) {
+                const h = holidays[`${mIdx}-${d}`];
                 const isToday = today.getFullYear() === currentYear && today.getMonth() === mIdx && today.getDate() === d;
-                grid.innerHTML += `<div class="expanded-day ${isHoliday ? 'holiday-text' : ''} ${isToday ? 'today-circle' : ''}">${d}</div>`;
-                if(isHoliday) foundHolidays.push({d, name: isHoliday});
-            }
-
-            content.appendChild(grid);
-
-            if (foundHolidays.length > 0) {
-                hList.innerHTML = '<h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">Festivos</h4>';
-                foundHolidays.forEach(h => {
-                    const dayName = fullWeekdays[new Date(currentYear, mIdx, h.d).getDay()];
-                    hList.innerHTML += `
-                        <div class="flex items-start gap-5 animate-fade">
-                            <div class="text-[#ff3b30] font-bold w-6 text-xl">${h.d}</div>
+                cal.innerHTML += `<div class="day-cell ${isToday ? 'today-circle' : ''} ${h ? (h.official ? 'holiday-mark' : 'special-mark') : ''}">${d}</div>`;
+                
+                if(h) {
+                    list.innerHTML += `
+                        <div class="flex items-center gap-6 px-4 mb-8 animate-fade">
+                            <div class="${h.official ? 'text-red' : 'text-blue'} font-bold text-3xl w-10">${d}</div>
                             <div>
-                                <div class="font-bold text-gray-900 text-lg leading-tight">${h.name}</div>
-                                <div class="text-sm text-gray-500 mt-0.5">${dayName}</div>
+                                <div class="font-bold text-xl leading-tight dark:text-white">${h.name}</div>
+                                <div class="text-xs text-gray-400 font-bold mt-1 uppercase">${h.official ? 'Festivo Oficial' : 'Celebración'}</div>
                             </div>
-                        </div>
-                    `;
-                });
+                        </div>`;
+                }
             }
+            if(list.children.length === 1) list.innerHTML += '<p class="text-gray-400 italic px-4">No hay festivos este mes.</p>';
 
-            overlay.style.display = 'block';
-            document.body.style.overflow = 'hidden';
+            switchView('view-month');
         }
 
-        function closeDetail() {
-            document.getElementById('month-detail-overlay').style.display = 'none';
-            document.body.style.overflow = 'auto';
+        function switchView(id) {
+            document.querySelectorAll('.view-container').forEach(v => v.classList.remove('view-active'));
+            document.getElementById(id).classList.add('view-active');
+            window.scrollTo(0, 0);
+        }
+
+        function toggleDarkMode() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.theme = isDark ? 'dark' : 'light';
+            document.getElementById('moon-icon').classList.toggle('hidden', isDark);
+            document.getElementById('sun-icon').classList.toggle('hidden', !isDark);
+        }
+
+        function showSearch() { document.getElementById('search-overlay').style.display = 'block'; document.getElementById('search-input').focus(); }
+        function hideSearch() { document.getElementById('search-overlay').style.display = 'none'; document.getElementById('search-input').value = ''; }
+
+        function searchFestivos(q) {
+            const res = document.getElementById('search-results');
+            res.innerHTML = '';
+            if(!q || q.length < 2) return;
+            const holidays = getHolidays(currentYear);
+            for(let m=0; m<12; m++) {
+                const days = new Date(currentYear, m+1, 0).getDate();
+                for(let d=1; d<=days; d++) {
+                    const h = holidays[`${m}-${d}`];
+                    if(h && h.name.toLowerCase().includes(q.toLowerCase())) {
+                        const item = document.createElement('div');
+                        item.className = "p-5 bg-gray-50 dark:bg-zinc-900 rounded-2xl cursor-pointer flex justify-between items-center active:scale-[0.98] transition-transform";
+                        item.onclick = () => { hideSearch(); showMonth(m); };
+                        item.innerHTML = `<div><div class="font-bold text-lg">${h.name}</div><div class="text-sm text-gray-400">${d} de ${monthsLong[m]}</div></div><div class="text-red">➔</div>`;
+                        res.appendChild(item);
+                    }
+                }
+            }
         }
 
         function goToToday() {
-            const today = new Date();
-            changeYear(today.getFullYear());
-            renderCalendar();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            const now = new Date();
+            currentYear = now.getFullYear();
+            renderYearView();
+            setTimeout(() => showMonth(now.getMonth()), 100);
         }
 
         window.onload = () => {
-            initYearSelector();
-            changeYear(new Date().getFullYear());
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) toggleDarkMode();
+            renderYearView();
         };
     </script>
 </body>
 </html>
-
-
