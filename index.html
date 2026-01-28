@@ -6,7 +6,7 @@
     
     <!-- SEO TÉCNICO -->
     <title>Calendario Colombia 2026 - Festivos, Puentes y Maximizador de Vacaciones</title>
-    <meta name="description" content="Calendario interactivo de Colombia para el año 2026. Incluye festivos oficiales, Ley Emiliani y una herramienta para optimizar tus días de vacaciones con resaltado visual y vista multimes.">
+    <meta name="description" content="Calendario interactivo de Colombia para el año 2026. Incluye festivos oficiales, Ley Emiliani y una herramienta para optimizar tus días de vacaciones con resaltado visual y selección manual.">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -94,7 +94,11 @@
             background-color: rgba(52, 199, 89, 0.2);
             color: #81c784;
         }
-        .vacation-highlight.holiday-mark { color: var(--ios-red) !important; }
+        
+        /* Prioridad: Festivo dentro de vacaciones (Letra Roja + Fondo Verde) */
+        .vacation-highlight.holiday-mark { 
+            color: var(--ios-red) !important; 
+        }
 
         #search-overlay, #vacation-overlay {
             display: none;
@@ -144,9 +148,37 @@
             font-weight: 500;
         }
         .dark .ios-input { background: #1c1c1e; color: white; }
+
+        /* Estilo para modo selección manual */
+        .manual-selection-active .mini-days-grid div:not(:empty) {
+            cursor: pointer;
+        }
+        .manual-selection-active .mini-days-grid div:hover:not(:empty) {
+            background-color: rgba(52, 199, 89, 0.2);
+            border-radius: 50%;
+        }
+
+        #manual-instruction {
+            position: fixed;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 50;
+            background: var(--ios-green);
+            color: white;
+            padding: 8px 24px;
+            border-radius: 24px;
+            font-weight: 600;
+            box-shadow: 0 10px 25px rgba(52, 199, 89, 0.3);
+            pointer-events: none;
+            display: none;
+            border: 2px solid white;
+        }
     </style>
 </head>
 <body class="p-6 md:p-10">
+
+    <div id="manual-instruction" class="animate-bounce">Toca el día de inicio en el calendario</div>
 
     <div class="app-wrapper">
         <header class="flex justify-between items-start mb-12 sticky top-0 bg-white/80 dark:bg-black/80 backdrop-blur-md py-4 z-20">
@@ -197,13 +229,17 @@
 
             <div class="bg-gray-50 dark:bg-zinc-900 p-6 rounded-3xl mb-10 border border-gray-100 dark:border-zinc-800">
                 <label class="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-3">Días de vacaciones acumulados</label>
-                <div class="flex gap-4">
+                <div class="flex gap-4 mb-6">
                     <input type="number" id="vacation-days-input" value="15" min="1" max="60" 
                            class="ios-input text-2xl font-bold w-32" onchange="resetAndRefreshVacations()">
                     <div class="flex-1 text-sm text-gray-500 leading-tight flex items-center">
-                        Encontramos las mejores opciones para ti. Puedes ver las 3 principales o explorar todas.
+                        Calculamos las mejores opciones o elige tú mismo el inicio.
                     </div>
                 </div>
+                <button onclick="toggleManualMode()" class="w-full py-4 bg-green-500 text-white font-bold rounded-2xl active:scale-95 transition-transform flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>
+                    Seleccionar manualmente en el calendario
+                </button>
             </div>
             
             <h3 id="vacation-results-title" class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6 px-2">Top 3 Mejores Opciones</h3>
@@ -220,6 +256,7 @@
         let currentYear = new Date().getFullYear();
         let selectedVacation = null;
         let showAllVacations = false;
+        let isManualMode = false;
         const monthsLong = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
         const monthsShort = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
         const weekdays = ["D", "L", "M", "M", "J", "V", "S"];
@@ -279,6 +316,10 @@
             container.innerHTML = '';
             const holidays = getHolidays(currentYear);
             const today = new Date();
+            
+            document.body.classList.toggle('manual-selection-active', isManualMode);
+            document.getElementById('manual-instruction').style.display = isManualMode ? 'block' : 'none';
+
             document.getElementById('header-nav').innerHTML = `
                 <div class="relative inline-block">
                     <h1 class="text-5xl font-bold text-red tracking-tight cursor-pointer">${currentYear}</h1>
@@ -290,24 +331,91 @@
             monthsShort.forEach((name, mIdx) => {
                 const isCurrentMonth = today.getFullYear() === currentYear && today.getMonth() === mIdx;
                 const monthDiv = document.createElement('div');
-                monthDiv.className = "cursor-pointer active:opacity-50 transition-opacity";
-                monthDiv.onclick = () => selectedVacation ? showPeriodView() : showMonth(mIdx);
+                monthDiv.className = "month-container transition-opacity";
+                
+                if (!isManualMode) {
+                    monthDiv.onclick = () => selectedVacation ? showPeriodView() : showMonth(mIdx);
+                    monthDiv.classList.add('cursor-pointer', 'active:opacity-50');
+                }
+
                 let html = `<div class="mini-month-name ${isCurrentMonth ? 'text-red' : ''}">${name}</div><div class="mini-days-grid">`;
+                
+                // Agregamos las iniciales de la semana
+                weekdays.forEach(w => {
+                    html += `<div class="text-[0.6rem] font-bold text-gray-400 mb-1 opacity-60">${w}</div>`;
+                });
+
                 const start = new Date(currentYear, mIdx, 1).getDay();
                 const total = new Date(currentYear, mIdx + 1, 0).getDate();
+                
                 for(let i=0; i<start; i++) html += '<div></div>';
                 for(let d=1; d<=total; d++) {
                     const checkDate = new Date(currentYear, mIdx, d);
                     const h = holidays[`${mIdx}-${d}`];
                     const isToday = isCurrentMonth && today.getDate() === d;
                     const isVac = isDateInRange(checkDate, selectedVacation);
-                    let cellClass = isToday ? 'today-circle rounded-full w-4 h-4 flex items-center justify-center mx-auto' : (isVac ? 'vacation-highlight font-bold' : (h ? 'holiday-mark' : ''));
-                    html += `<div class="${cellClass}">${d}</div>`;
+                    
+                    let cellClasses = [];
+                    if (isToday) {
+                        cellClasses.push('today-circle rounded-full w-4 h-4 flex items-center justify-center mx-auto');
+                    } else {
+                        if (isVac) cellClasses.push('vacation-highlight font-bold');
+                        if (h) cellClasses.push('holiday-mark');
+                    }
+                    
+                    const manualClick = isManualMode ? `onclick="handleManualSelection(${currentYear}, ${mIdx}, ${d}, event)"` : "";
+                    html += `<div ${manualClick} class="${cellClasses.join(' ')}">${d}</div>`;
                 }
                 monthDiv.innerHTML = html + '</div>';
                 container.appendChild(monthDiv);
             });
             switchView('view-year');
+        }
+
+        function handleManualSelection(y, m, d, event) {
+            if (event) event.stopPropagation();
+            const startDate = new Date(y, m, d);
+            const holidays = getHolidays(y);
+            const holidayMap = new Set(Object.keys(holidays).filter(k => holidays[k].official));
+            
+            if(startDate.getDay() === 0 || startDate.getDay() === 6 || holidayMap.has(`${startDate.getMonth()}-${startDate.getDate()}`)) {
+                return;
+            }
+
+            const daysToSpend = parseInt(document.getElementById('vacation-days-input').value) || 15;
+            let daysSpent = 0, totalDaysOff = 0, currentDate = new Date(startDate), lastDate = new Date(startDate);
+
+            while(daysSpent < daysToSpend) {
+                const key = `${currentDate.getMonth()}-${currentDate.getDate()}`;
+                const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
+                const isHoliday = holidayMap.has(key);
+
+                if(!isWeekend && !isHoliday) daysSpent++;
+                totalDaysOff++;
+                lastDate = new Date(currentDate);
+                currentDate.setDate(currentDate.getDate() + 1);
+
+                while(true) {
+                    const nextKey = `${currentDate.getMonth()}-${currentDate.getDate()}`;
+                    if(currentDate.getDay() === 0 || currentDate.getDay() === 6 || holidayMap.has(nextKey)) {
+                        totalDaysOff++;
+                        lastDate = new Date(currentDate);
+                        currentDate.setDate(currentDate.getDate() + 1);
+                    } else break;
+                }
+            }
+
+            isManualMode = false;
+            document.getElementById('manual-instruction').style.display = 'none';
+            document.body.classList.remove('manual-selection-active');
+            
+            selectVacationOption(startDate, lastDate, 'period');
+        }
+
+        function toggleManualMode() {
+            isManualMode = true;
+            hideVacations();
+            renderYearView();
         }
 
         function showMonth(mIdx) {
@@ -333,6 +441,22 @@
             const today = new Date();
             const contentList = document.getElementById('month-content-list');
             contentList.innerHTML = '';
+            
+            const summary = document.createElement('div');
+            summary.className = "bg-green-50 dark:bg-green-900/10 p-6 rounded-3xl border border-green-100 dark:border-green-900/30 mb-10 max-w-lg mx-auto text-center animate-fade";
+            const daysWon = Math.floor((selectedVacation.end - selectedVacation.start) / (1000*60*60*24)) + 1;
+            const spent = parseInt(document.getElementById('vacation-days-input').value);
+            summary.innerHTML = `
+                <div class="text-green-600 dark:text-green-400 font-bold text-sm uppercase tracking-widest mb-2">Periodo Seleccionado</div>
+                <div class="text-2xl font-bold dark:text-white">Descansas ${daysWon} días</div>
+                <div class="text-xs text-gray-500 mt-1 mb-4">Gastando solo ${spent} días de vacaciones</div>
+                <button onclick="renderYearView()" class="w-full py-3 bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold active:scale-95 transition-transform flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    Ver en el año completo
+                </button>
+            `;
+            contentList.appendChild(summary);
+
             for (let m = startMonth; m <= endMonth; m++) {
                 contentList.appendChild(generateMonthBlock(m, holidays, today));
             }
@@ -366,8 +490,16 @@
                 const h = holidays[`${mIdx}-${d}`];
                 const isToday = today.getFullYear() === currentYear && today.getMonth() === mIdx && today.getDate() === d;
                 const isVac = isDateInRange(checkDate, selectedVacation);
-                let cellClass = isToday ? 'today-circle' : (isVac ? 'vacation-highlight font-bold scale-110' : (h ? 'holiday-mark' : ''));
-                grid.innerHTML += `<div class="day-cell ${cellClass}">${d}</div>`;
+                
+                let cellClasses = [];
+                if (isToday) {
+                    cellClasses.push('today-circle');
+                } else {
+                    if (isVac) cellClasses.push('vacation-highlight font-bold scale-110');
+                    if (h) cellClasses.push('holiday-mark');
+                }
+
+                grid.innerHTML += `<div class="day-cell ${cellClasses.join(' ')}">${d}</div>`;
                 if(h) list.innerHTML += `<div class="flex items-center gap-6 mb-8"><div class="text-red font-bold text-3xl w-10">${d}</div><div><div class="font-bold text-xl dark:text-white">${h.name}</div><div class="text-xs text-gray-400 font-bold uppercase mt-1">Festivo Oficial</div></div></div>`;
             }
             container.appendChild(grid);
@@ -422,6 +554,8 @@
 
         function clearVacationHighlight() {
             selectedVacation = null;
+            isManualMode = false;
+            document.getElementById('manual-instruction').style.display = 'none';
             document.getElementById('btn-clear-vac').classList.add('hidden');
             document.getElementById('view-year').classList.contains('view-active') ? renderYearView() : showMonth(new Date().getMonth());
         }
@@ -485,10 +619,23 @@
             refreshVacationAnalysis();
         }
 
-        function showVacations() { document.getElementById('vacation-overlay').style.display = 'block'; refreshVacationAnalysis(); }
-        function hideVacations() { document.getElementById('vacation-overlay').style.display = 'none'; showAllVacations = false; }
-        function showSearch() { document.getElementById('search-overlay').style.display = 'block'; document.getElementById('search-input').focus(); }
-        function hideSearch() { document.getElementById('search-overlay').style.display = 'none'; }
+        function showVacations() { 
+            document.getElementById('vacation-overlay').style.display = 'block'; 
+            isManualMode = false;
+            document.getElementById('manual-instruction').style.display = 'none';
+            refreshVacationAnalysis(); 
+        }
+        function hideVacations() { 
+            document.getElementById('vacation-overlay').style.display = 'none'; 
+            showAllVacations = false; 
+        }
+        function showSearch() { 
+            document.getElementById('search-overlay').style.display = 'block'; 
+            document.getElementById('search-input').focus(); 
+        }
+        function hideSearch() { 
+            document.getElementById('search-overlay').style.display = 'none'; 
+        }
         function toggleDarkMode() {
             const isDark = document.documentElement.classList.toggle('dark');
             localStorage.theme = isDark ? 'dark' : 'light';
@@ -520,6 +667,8 @@
             const now = new Date();
             currentYear = now.getFullYear();
             selectedVacation = null;
+            isManualMode = false;
+            document.getElementById('manual-instruction').style.display = 'none';
             document.getElementById('btn-clear-vac').classList.add('hidden');
             renderYearView();
             setTimeout(() => showMonth(now.getMonth()), 100);
