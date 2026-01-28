@@ -16,7 +16,7 @@
         }
     </script>
     <style>
-        :root { --ios-red: #ff3b30; --ios-blue: #007aff; --ios-green: #34c759; }
+        :root { --ios-red: #ff3b30; --ios-blue: #007aff; --ios-green: #34c759; --ios-orange: #ff9500; }
         body {
             font-family: 'Inter', sans-serif;
             transition: background-color 0.2s;
@@ -80,8 +80,10 @@
         .text-red { color: var(--ios-red); }
         .text-blue { color: var(--ios-blue); }
         .text-green { color: var(--ios-green); }
+        .text-orange { color: var(--ios-orange); }
         
         .holiday-mark { color: var(--ios-red) !important; font-weight: 700; }
+        .saturday-mark { color: var(--ios-orange) !important; font-weight: 600; }
         .special-mark { color: var(--ios-blue); font-weight: 700; }
         .today-circle { background-color: var(--ios-red); color: white !important; font-weight: 700; z-index: 10; }
         
@@ -98,6 +100,10 @@
         /* Prioridad: Festivo dentro de vacaciones (Letra Roja + Fondo Verde) */
         .vacation-highlight.holiday-mark { 
             color: var(--ios-red) !important; 
+        }
+        /* Sábado dentro de vacaciones (Letra Naranja + Fondo Verde) */
+        .vacation-highlight.saturday-mark {
+            color: var(--ios-orange) !important;
         }
 
         #search-overlay, #vacation-overlay {
@@ -221,14 +227,14 @@
         <div class="app-wrapper p-6">
             <div class="flex justify-between items-center mb-8">
                 <div>
-                    <h2 class="text-3xl font-bold tracking-tight">Maximizador <span class="text-green">PRO</span></h2>
+                    <h2 class="text-3xl font-bold tracking-tight">Maximizador de vacaciones <span class="text-green">PRO</span></h2>
                     <p class="text-gray-500 dark:text-gray-400">Optimiza tus días para descansar más.</p>
                 </div>
                 <button onclick="hideVacations()" class="text-red font-bold text-lg">Cerrar</button>
             </div>
 
             <div class="bg-gray-50 dark:bg-zinc-900 p-6 rounded-3xl mb-10 border border-gray-100 dark:border-zinc-800">
-                <label class="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-3">Días de vacaciones acumulados</label>
+                <label class="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-3 text-balance">Ingresa el número de días de vacaciones acumuladas</label>
                 <div class="flex gap-4 mb-6">
                     <input type="number" id="vacation-days-input" value="15" min="1" max="60" 
                            class="ios-input text-2xl font-bold w-32" onchange="resetAndRefreshVacations()">
@@ -340,9 +346,12 @@
 
                 let html = `<div class="mini-month-name ${isCurrentMonth ? 'text-red' : ''}">${name}</div><div class="mini-days-grid">`;
                 
-                // Agregamos las iniciales de la semana
-                weekdays.forEach(w => {
-                    html += `<div class="text-[0.6rem] font-bold text-gray-400 mb-1 opacity-60">${w}</div>`;
+                // Iniciales de la semana con colores para sábados y domingos
+                weekdays.forEach((w, i) => {
+                    let colorClass = "text-gray-400 opacity-60";
+                    if (i === 0) colorClass = "text-red opacity-80"; // Domingo
+                    if (i === 6) colorClass = "text-orange opacity-80"; // Sábado
+                    html += `<div class="text-[0.6rem] font-bold ${colorClass} mb-1">${w}</div>`;
                 });
 
                 const start = new Date(currentYear, mIdx, 1).getDay();
@@ -354,13 +363,20 @@
                     const h = holidays[`${mIdx}-${d}`];
                     const isToday = isCurrentMonth && today.getDate() === d;
                     const isVac = isDateInRange(checkDate, selectedVacation);
+                    const dayOfWeek = checkDate.getDay();
                     
                     let cellClasses = [];
                     if (isToday) {
                         cellClasses.push('today-circle rounded-full w-4 h-4 flex items-center justify-center mx-auto');
                     } else {
                         if (isVac) cellClasses.push('vacation-highlight font-bold');
-                        if (h) cellClasses.push('holiday-mark');
+                        
+                        // Lógica de colores de letra
+                        if (h || dayOfWeek === 0) {
+                            cellClasses.push('holiday-mark'); // Domingo o Festivo = Rojo
+                        } else if (dayOfWeek === 6) {
+                            cellClasses.push('saturday-mark'); // Sábado = Naranja
+                        }
                     }
                     
                     const manualClick = isManualMode ? `onclick="handleManualSelection(${currentYear}, ${mIdx}, ${d}, event)"` : "";
@@ -451,7 +467,7 @@
                 <div class="text-2xl font-bold dark:text-white">Descansas ${daysWon} días</div>
                 <div class="text-xs text-gray-500 mt-1 mb-4">Gastando solo ${spent} días de vacaciones</div>
                 <button onclick="renderYearView()" class="w-full py-3 bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold active:scale-95 transition-transform flex items-center justify-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                     Ver en el año completo
                 </button>
             `;
@@ -478,7 +494,15 @@
             container.appendChild(title);
             const grid = document.createElement('div');
             grid.className = "month-detail-grid mb-10";
-            weekdays.forEach(w => grid.innerHTML += `<div class="text-center text-gray-400 font-bold text-xs uppercase py-3">${w}</div>`);
+            
+            // Cabecera de días detallada
+            weekdays.forEach((w, i) => {
+                let colorClass = "text-gray-400";
+                if (i === 0) colorClass = "text-red"; // Domingo
+                if (i === 6) colorClass = "text-orange"; // Sábado
+                grid.innerHTML += `<div class="text-center ${colorClass} font-bold text-xs uppercase py-3">${w}</div>`;
+            });
+
             const start = new Date(currentYear, mIdx, 1).getDay();
             const total = new Date(currentYear, mIdx + 1, 0).getDate();
             const list = document.createElement('div');
@@ -490,13 +514,19 @@
                 const h = holidays[`${mIdx}-${d}`];
                 const isToday = today.getFullYear() === currentYear && today.getMonth() === mIdx && today.getDate() === d;
                 const isVac = isDateInRange(checkDate, selectedVacation);
+                const dayOfWeek = checkDate.getDay();
                 
                 let cellClasses = [];
                 if (isToday) {
                     cellClasses.push('today-circle');
                 } else {
                     if (isVac) cellClasses.push('vacation-highlight font-bold scale-110');
-                    if (h) cellClasses.push('holiday-mark');
+                    
+                    if (h || dayOfWeek === 0) {
+                        cellClasses.push('holiday-mark');
+                    } else if (dayOfWeek === 6) {
+                        cellClasses.push('saturday-mark');
+                    }
                 }
 
                 grid.innerHTML += `<div class="day-cell ${cellClasses.join(' ')}">${d}</div>`;
