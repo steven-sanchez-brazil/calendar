@@ -470,8 +470,8 @@ import FloatingNav from '../components/FloatingNav.astro';
   });
 
   // Initialize
-  if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-    toggleDarkMode();
-  }
+  const isDarkMode = document.documentElement.classList.contains('dark');
+  document.getElementById('moon-icon')!.classList.toggle('hidden', isDarkMode);
+  document.getElementById('sun-icon')!.classList.toggle('hidden', !isDarkMode);
   renderYearView();
 </script>

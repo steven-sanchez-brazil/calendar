@@ -1,25 +1,17 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --ios-red: #ff3b30;
-  --ios-blue: #007aff;
-  --ios-green: #34c759;
-  --ios-orange: #ff9500;
-}
-
+:root { --ios-red: #ff3b30; --ios-blue: #007aff; --ios-green: #34c759; --ios-orange: #ff9500; }
 body {
-  font-family: 'Inter', sans-serif;
-  transition: background-color 0.2s;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-  background-color: #ffffff;
-  color: #000000;
+    font-family: 'Inter', sans-serif;
+    transition: background-color 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    background-color: #ffffff;
+    color: #000000;
 }
-
-.dark body {
-  background-color: #000000;
-  color: #ffffff;
-}
+.dark body { background-color: #000000; color: #ffffff; }
 
 .app-wrapper {
   max-width: 1200px;
