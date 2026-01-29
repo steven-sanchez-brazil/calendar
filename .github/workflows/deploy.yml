@@ -2,7 +2,7 @@ name: Deploy to GitHub Page
 
 on:
   push:
-    branches: [ organizarProyecto ]
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
