@@ -1,0 +1,27 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const { 
+  title = 'Calendario Colombia 2026 - Festivos, Puentes y Maximizador de Vacaciones',
+  description = 'Calendario interactivo de Colombia para el año 2026. Incluye festivos oficiales, Ley Emiliani y una herramienta para optimizar tus días de vacaciones con resaltado visual y selección manual.'
+} = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>{title}</title>
+  <meta name="description" content={description}>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="p-6 md:p-10">
+  <slot />
+</body>
+</html>

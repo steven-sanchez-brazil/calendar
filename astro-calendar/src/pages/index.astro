@@ -1,0 +1,477 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import SearchOverlay from '../components/SearchOverlay.astro';
+import VacationOverlay from '../components/VacationOverlay.astro';
+import FloatingNav from '../components/FloatingNav.astro';
+---
+
+<Layout>
+  <div class="app-wrapper">
+    <Header />
+
+    <main id="view-year" class="view-container view-active">
+      <div id="year-grid" class="year-grid"></div>
+    </main>
+
+    <main id="view-month" class="view-container">
+      <div id="month-content-list" class="space-y-16"></div>
+    </main>
+  </div>
+
+  <SearchOverlay />
+  <VacationOverlay />
+  <FloatingNav />
+</Layout>
+
+<script>
+  import { getHolidays } from '../lib/holidays';
+  import { calculateTopVacations } from '../lib/vacations';
+
+  let currentYear = new Date().getFullYear();
+  let selectedVacation: { start: Date; end: Date } | null = null;
+  let showAllVacations = false;
+  let isManualMode = false;
+
+  const monthsLong = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  const monthsShort = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+  const weekdays = ["D", "L", "M", "M", "J", "V", "S"];
+
+  function isDateInRange(date: Date, range: { start: Date; end: Date } | null): boolean {
+    if (!range) return false;
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    const s = new Date(range.start.getFullYear(), range.start.getMonth(), range.start.getDate()).getTime();
+    const e = new Date(range.end.getFullYear(), range.end.getMonth(), range.end.getDate()).getTime();
+    return d >= s && d <= e;
+  }
+
+  function renderYearView() {
+    const container = document.getElementById('year-grid')!;
+    container.innerHTML = '';
+    const holidays = getHolidays(currentYear);
+    const today = new Date();
+
+    document.body.classList.toggle('manual-selection-active', isManualMode);
+    const manualInstruction = document.getElementById('manual-instruction')!;
+    manualInstruction.style.display = isManualMode ? 'block' : 'none';
+
+    const headerNav = document.getElementById('header-nav')!;
+    const yearOptions = Array.from({ length: 21 }, (_, i) => {
+      const year = today.getFullYear() - 10 + i;
+      return `<option value="${year}" ${year === currentYear ? 'selected' : ''}>${year}</option>`;
+    }).join('');
+
+    headerNav.innerHTML = `
+      <div class="relative inline-block">
+        <h1 class="text-5xl font-bold text-red tracking-tight cursor-pointer">${currentYear}</h1>
+        <select id="year-selector" class="absolute inset-0 opacity-0 cursor-pointer">
+          ${yearOptions}
+        </select>
+      </div>
+    `;
+
+    document.getElementById('year-selector')!.addEventListener('change', (e) => {
+      currentYear = parseInt((e.target as HTMLSelectElement).value);
+      renderYearView();
+    });
+
+    monthsShort.forEach((name, mIdx) => {
+      const isCurrentMonth = today.getFullYear() === currentYear && today.getMonth() === mIdx;
+      const monthDiv = document.createElement('div');
+      monthDiv.className = "month-container transition-opacity";
+
+      if (!isManualMode) {
+        monthDiv.onclick = () => selectedVacation ? showPeriodView() : showMonth(mIdx);
+        monthDiv.classList.add('cursor-pointer', 'active:opacity-50');
+      }
+
+      let html = `<div class="mini-month-name ${isCurrentMonth ? 'text-red' : ''}">${name}</div><div class="mini-days-grid">`;
+
+      weekdays.forEach((w, i) => {
+        let colorClass = "text-gray-400 opacity-60";
+        if (i === 0) colorClass = "text-red opacity-80";
+        if (i === 6) colorClass = "text-orange opacity-80";
+        html += `<div class="text-[0.6rem] font-bold ${colorClass} mb-1">${w}</div>`;
+      });
+
+      const start = new Date(currentYear, mIdx, 1).getDay();
+      const total = new Date(currentYear, mIdx + 1, 0).getDate();
+
+      for (let i = 0; i < start; i++) html += '<div></div>';
+      for (let d = 1; d <= total; d++) {
+        const checkDate = new Date(currentYear, mIdx, d);
+        const h = holidays[`${mIdx}-${d}`];
+        const isToday = isCurrentMonth && today.getDate() === d;
+        const isVac = isDateInRange(checkDate, selectedVacation);
+        const dayOfWeek = checkDate.getDay();
+
+        let cellClasses = [];
+        if (isToday) {
+          cellClasses.push('today-circle rounded-full w-4 h-4 flex items-center justify-center mx-auto');
+        } else {
+          if (isVac) cellClasses.push('vacation-highlight font-bold');
+          if (h || dayOfWeek === 0) {
+            cellClasses.push('holiday-mark');
+          } else if (dayOfWeek === 6) {
+            cellClasses.push('saturday-mark');
+          }
+        }
+
+        const manualClick = isManualMode ? `data-manual="${currentYear}-${mIdx}-${d}"` : "";
+        html += `<div ${manualClick} class="${cellClasses.join(' ')}">${d}</div>`;
+      }
+      monthDiv.innerHTML = html + '</div>';
+      container.appendChild(monthDiv);
+    });
+
+    if (isManualMode) {
+      container.querySelectorAll('[data-manual]').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const [y, m, d] = (el as HTMLElement).getAttribute('data-manual')!.split('-').map(Number);
+          handleManualSelection(y, m, d);
+        });
+      });
+    }
+
+    switchView('view-year');
+  }
+
+  function handleManualSelection(y: number, m: number, d: number) {
+    const startDate = new Date(y, m, d);
+    const holidays = getHolidays(y);
+    const holidayMap = new Set(Object.keys(holidays).filter(k => holidays[k].official));
+
+    if (startDate.getDay() === 0 || startDate.getDay() === 6 || holidayMap.has(`${startDate.getMonth()}-${startDate.getDate()}`)) {
+      return;
+    }
+
+    const daysToSpend = parseInt((document.getElementById('vacation-days-input') as HTMLInputElement).value) || 15;
+    let daysSpent = 0, totalDaysOff = 0;
+    const currentDate = new Date(startDate);
+    let lastDate = new Date(startDate);
+
+    while (daysSpent < daysToSpend) {
+      const key = `${currentDate.getMonth()}-${currentDate.getDate()}`;
+      const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
+      const isHoliday = holidayMap.has(key);
+
+      if (!isWeekend && !isHoliday) daysSpent++;
+      totalDaysOff++;
+      lastDate = new Date(currentDate);
+      currentDate.setDate(currentDate.getDate() + 1);
+
+      while (true) {
+        const nextKey = `${currentDate.getMonth()}-${currentDate.getDate()}`;
+        if (currentDate.getDay() === 0 || currentDate.getDay() === 6 || holidayMap.has(nextKey)) {
+          totalDaysOff++;
+          lastDate = new Date(currentDate);
+          currentDate.setDate(currentDate.getDate() + 1);
+        } else break;
+      }
+    }
+
+    isManualMode = false;
+    document.getElementById('manual-instruction')!.style.display = 'none';
+    document.body.classList.remove('manual-selection-active');
+
+    selectVacationOption(startDate, lastDate, 'period');
+  }
+
+  function showMonth(mIdx: number) {
+    const holidays = getHolidays(currentYear);
+    const today = new Date();
+    const contentList = document.getElementById('month-content-list')!;
+    contentList.innerHTML = '';
+    contentList.appendChild(generateMonthBlock(mIdx, holidays, today));
+
+    document.getElementById('header-nav')!.innerHTML = `
+      <button id="btn-back-year" class="text-red flex items-center gap-1 font-bold text-xl">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        ${currentYear}
+      </button>
+    `;
+
+    document.getElementById('btn-back-year')!.addEventListener('click', renderYearView);
+    switchView('view-month');
+  }
+
+  function showPeriodView() {
+    if (!selectedVacation) return;
+    const startMonth = selectedVacation.start.getMonth();
+    const endMonth = selectedVacation.end.getMonth();
+    const holidays = getHolidays(currentYear);
+    const today = new Date();
+    const contentList = document.getElementById('month-content-list')!;
+    contentList.innerHTML = '';
+
+    const summary = document.createElement('div');
+    summary.className = "bg-green-50 dark:bg-green-900/10 p-6 rounded-3xl border border-green-100 dark:border-green-900/30 mb-10 max-w-lg mx-auto text-center animate-fade";
+    const daysWon = Math.floor((selectedVacation.end.getTime() - selectedVacation.start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const spent = parseInt((document.getElementById('vacation-days-input') as HTMLInputElement).value);
+    summary.innerHTML = `
+      <div class="text-green-600 dark:text-green-400 font-bold text-sm uppercase tracking-widest mb-2">Periodo Seleccionado</div>
+      <div class="text-2xl font-bold dark:text-white">Descansas ${daysWon} días</div>
+      <div class="text-xs text-gray-500 mt-1 mb-4">Gastando solo ${spent} días de vacaciones</div>
+      <button id="btn-view-year" class="w-full py-3 bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold active:scale-95 transition-transform flex items-center justify-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+        </svg>
+        Ver en el año completo
+      </button>
+    `;
+    contentList.appendChild(summary);
+    document.getElementById('btn-view-year')!.addEventListener('click', renderYearView);
+
+    for (let m = startMonth; m <= endMonth; m++) {
+      contentList.appendChild(generateMonthBlock(m, holidays, today));
+    }
+
+    document.getElementById('header-nav')!.innerHTML = `
+      <button id="btn-back-period" class="text-red flex items-center gap-1 font-bold text-xl">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        Regresar
+      </button>
+    `;
+
+    document.getElementById('btn-back-period')!.addEventListener('click', renderYearView);
+    switchView('view-month');
+  }
+
+  function generateMonthBlock(mIdx: number, holidays: any, today: Date): HTMLElement {
+    const container = document.createElement('div');
+    container.className = "animate-fade";
+    const title = document.createElement('h2');
+    title.className = "text-4xl font-bold mb-10 text-center tracking-tight";
+    title.innerText = monthsLong[mIdx];
+    container.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.className = "month-detail-grid mb-10";
+
+    weekdays.forEach((w, i) => {
+      let colorClass = "text-gray-400";
+      if (i === 0) colorClass = "text-red";
+      if (i === 6) colorClass = "text-orange";
+      grid.innerHTML += `<div class="text-center ${colorClass} font-bold text-xs uppercase py-3">${w}</div>`;
+    });
+
+    const start = new Date(currentYear, mIdx, 1).getDay();
+    const total = new Date(currentYear, mIdx + 1, 0).getDate();
+    const list = document.createElement('div');
+    list.className = "max-w-lg mx-auto px-4";
+    list.innerHTML = '<h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-8 border-t border-gray-100 dark:border-gray-900 pt-8">Festivos y Fechas</h3>';
+
+    for (let i = 0; i < start; i++) grid.innerHTML += '<div></div>';
+    for (let d = 1; d <= total; d++) {
+      const checkDate = new Date(currentYear, mIdx, d);
+      const h = holidays[`${mIdx}-${d}`];
+      const isToday = today.getFullYear() === currentYear && today.getMonth() === mIdx && today.getDate() === d;
+      const isVac = isDateInRange(checkDate, selectedVacation);
+      const dayOfWeek = checkDate.getDay();
+
+      let cellClasses = [];
+      if (isToday) {
+        cellClasses.push('today-circle');
+      } else {
+        if (isVac) cellClasses.push('vacation-highlight font-bold scale-110');
+        if (h || dayOfWeek === 0) {
+          cellClasses.push('holiday-mark');
+        } else if (dayOfWeek === 6) {
+          cellClasses.push('saturday-mark');
+        }
+      }
+
+      grid.innerHTML += `<div class="day-cell ${cellClasses.join(' ')}">${d}</div>`;
+      if (h) list.innerHTML += `<div class="flex items-center gap-6 mb-8"><div class="text-red font-bold text-3xl w-10">${d}</div><div><div class="font-bold text-xl dark:text-white">${h.name}</div><div class="text-xs text-gray-400 font-bold uppercase mt-1">Festivo Oficial</div></div></div>`;
+    }
+    container.appendChild(grid);
+    container.appendChild(list);
+    return container;
+  }
+
+  function switchView(id: string) {
+    document.querySelectorAll('.view-container').forEach(v => v.classList.remove('view-active'));
+    document.getElementById(id)!.classList.add('view-active');
+    window.scrollTo(0, 0);
+  }
+
+  function selectVacationOption(start: Date, end: Date, mode: string) {
+    selectedVacation = { start: new Date(start), end: new Date(end) };
+    document.getElementById('btn-clear-vac')!.classList.remove('hidden');
+    hideVacations();
+    mode === 'year' ? renderYearView() : showPeriodView();
+  }
+
+  function clearVacationHighlight() {
+    selectedVacation = null;
+    isManualMode = false;
+    document.getElementById('manual-instruction')!.style.display = 'none';
+    document.getElementById('btn-clear-vac')!.classList.add('hidden');
+    document.getElementById('view-year')!.classList.contains('view-active') ? renderYearView() : showMonth(new Date().getMonth());
+  }
+
+  function refreshVacationAnalysis() {
+    const days = parseInt((document.getElementById('vacation-days-input') as HTMLInputElement).value) || 15;
+    const topResults = calculateTopVacations(currentYear, days);
+    const container = document.getElementById('vacation-results')!;
+    const title = document.getElementById('vacation-results-title')!;
+    container.innerHTML = '';
+
+    title.innerText = showAllVacations ? "Todas las Opciones Disponibles" : "Top 3 Mejores Opciones";
+
+    const displayResults = showAllVacations ? topResults : topResults.slice(0, 3);
+    const medals = ['🥇', '🥈', '🥉'];
+
+    displayResults.forEach((v, i) => {
+      const icon = i < 3 ? medals[i] : `<span class="text-2xl font-bold opacity-30">#${i + 1}</span>`;
+      const card = document.createElement('div');
+      card.className = "bg-gray-50 dark:bg-zinc-900 p-6 rounded-3xl border border-gray-100 dark:border-zinc-800 animate-fade transition-all";
+      card.innerHTML = `
+        <div class="flex items-start gap-4">
+          <div class="w-10 text-center">${icon}</div>
+          <div class="flex-1">
+            <div class="flex justify-between items-center mb-2">
+              <h4 class="text-xl font-bold ${i < 3 ? (i == 0 ? 'text-yellow-500' : i == 1 ? 'text-gray-400' : 'text-orange-400') : 'text-zinc-500'}">Opción ${i + 1}</h4>
+              <span class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs font-bold px-3 py-1 rounded-full">Ganas ${v.total - v.spent} días</span>
+            </div>
+            <div class="text-gray-900 dark:text-white font-medium mb-4">Del ${v.start.getDate()} de ${monthsLong[v.start.getMonth()]} al ${v.end.getDate()} de ${monthsLong[v.end.getMonth()]}</div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-white dark:bg-black p-3 rounded-2xl border border-gray-100 dark:border-zinc-800 text-center">
+                <div class="text-[10px] text-gray-400 uppercase font-bold">Pides</div>
+                <div class="text-xl font-bold">${v.spent}</div>
+              </div>
+              <div class="bg-white dark:bg-black p-3 rounded-2xl border border-gray-100 dark:border-zinc-800 text-center">
+                <div class="text-[10px] text-gray-400 uppercase font-bold">Descansas</div>
+                <div class="text-xl font-bold text-green-500">${v.total}</div>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3 mt-4">
+              <button data-vacation-period="${v.start.toISOString()}|${v.end.toISOString()}" class="py-3 bg-green-500 text-white rounded-xl text-xs font-bold active:scale-95 transition-transform">Ver periodo</button>
+              <button data-vacation-year="${v.start.toISOString()}|${v.end.toISOString()}" class="py-3 bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold active:scale-95 transition-transform">Ver en el año</button>
+            </div>
+          </div>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+
+    container.querySelectorAll('[data-vacation-period]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const [start, end] = (btn as HTMLElement).getAttribute('data-vacation-period')!.split('|');
+        selectVacationOption(new Date(start), new Date(end), 'period');
+      });
+    });
+
+    container.querySelectorAll('[data-vacation-year]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const [start, end] = (btn as HTMLElement).getAttribute('data-vacation-year')!.split('|');
+        selectVacationOption(new Date(start), new Date(end), 'year');
+      });
+    });
+
+    if (!showAllVacations && topResults.length > 3) {
+      const moreBtn = document.createElement('button');
+      moreBtn.className = "w-full py-4 bg-zinc-100 dark:bg-zinc-800 text-red font-bold rounded-2xl active:scale-95 transition-transform mt-2";
+      moreBtn.innerText = "Ver todas las opciones del año";
+      moreBtn.onclick = () => {
+        showAllVacations = true;
+        refreshVacationAnalysis();
+      };
+      container.appendChild(moreBtn);
+    }
+  }
+
+  function showVacations() {
+    document.getElementById('vacation-overlay')!.style.display = 'block';
+    isManualMode = false;
+    document.getElementById('manual-instruction')!.style.display = 'none';
+    refreshVacationAnalysis();
+  }
+
+  function hideVacations() {
+    document.getElementById('vacation-overlay')!.style.display = 'none';
+    showAllVacations = false;
+  }
+
+  function showSearch() {
+    document.getElementById('search-overlay')!.style.display = 'block';
+    (document.getElementById('search-input') as HTMLInputElement).focus();
+  }
+
+  function hideSearch() {
+    document.getElementById('search-overlay')!.style.display = 'none';
+  }
+
+  function toggleDarkMode() {
+    const isDark = document.documentElement.classList.toggle('dark');
+    localStorage.theme = isDark ? 'dark' : 'light';
+    document.getElementById('moon-icon')!.classList.toggle('hidden', isDark);
+    document.getElementById('sun-icon')!.classList.toggle('hidden', !isDark);
+  }
+
+  function searchFestivos(q: string) {
+    const res = document.getElementById('search-results')!;
+    res.innerHTML = '';
+    if (!q || q.length < 2) return;
+    const holidays = getHolidays(currentYear);
+    for (let m = 0; m < 12; m++) {
+      const days = new Date(currentYear, m + 1, 0).getDate();
+      for (let d = 1; d <= days; d++) {
+        const h = holidays[`${m}-${d}`];
+        if (h && h.name.toLowerCase().includes(q.toLowerCase())) {
+          const item = document.createElement('div');
+          item.className = "p-4 bg-gray-50 dark:bg-zinc-900 rounded-2xl cursor-pointer flex justify-between items-center";
+          item.onclick = () => {
+            hideSearch();
+            showMonth(m);
+          };
+          item.innerHTML = `<div><div class="font-bold">${h.name}</div><div class="text-xs text-gray-400">${d} de ${monthsLong[m]}</div></div><div class="text-red">➔</div>`;
+          res.appendChild(item);
+        }
+      }
+    }
+  }
+
+  function goToToday() {
+    const now = new Date();
+    currentYear = now.getFullYear();
+    selectedVacation = null;
+    isManualMode = false;
+    document.getElementById('manual-instruction')!.style.display = 'none';
+    document.getElementById('btn-clear-vac')!.classList.add('hidden');
+    renderYearView();
+    setTimeout(() => showMonth(now.getMonth()), 100);
+  }
+
+  // Event listeners
+  document.getElementById('btn-vacations')!.addEventListener('click', showVacations);
+  document.getElementById('btn-theme')!.addEventListener('click', toggleDarkMode);
+  document.getElementById('btn-search')!.addEventListener('click', showSearch);
+  document.getElementById('btn-close-search')!.addEventListener('click', hideSearch);
+  document.getElementById('btn-close-vacation')!.addEventListener('click', hideVacations);
+  document.getElementById('btn-clear-vac')!.addEventListener('click', clearVacationHighlight);
+  document.getElementById('btn-today')!.addEventListener('click', goToToday);
+  document.getElementById('btn-manual-mode')!.addEventListener('click', () => {
+    isManualMode = true;
+    hideVacations();
+    renderYearView();
+  });
+  document.getElementById('search-input')!.addEventListener('input', (e) => {
+    searchFestivos((e.target as HTMLInputElement).value);
+  });
+  document.getElementById('vacation-days-input')!.addEventListener('change', () => {
+    showAllVacations = false;
+    refreshVacationAnalysis();
+  });
+
+  // Initialize
+  if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    toggleDarkMode();
+  }
+  renderYearView();
+</script>
