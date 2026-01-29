@@ -215,8 +215,11 @@ body {
   border-radius: 12px;
   padding: 12px 16px;
   outline: none;
-  width: 100%;
   font-weight: 500;
+}
+
+#vacation-days-input {
+  width: 8rem;
 }
 
 .dark .ios-input {

@@ -146,7 +146,7 @@ import FloatingNav from '../components/FloatingNav.astro';
       return;
     }
 
-    const daysToSpend = parseInt((document.getElementById('vacation-days-input') as HTMLInputElement).value) || 15;
+    const daysToSpend = Math.max(1, Math.min(999, parseInt((document.getElementById('vacation-days-input') as HTMLInputElement).value) || 15));
     let daysSpent = 0, totalDaysOff = 0;
     const currentDate = new Date(startDate);
     let lastDate = new Date(startDate);
@@ -210,7 +210,7 @@ import FloatingNav from '../components/FloatingNav.astro';
     const summary = document.createElement('div');
     summary.className = "bg-green-50 dark:bg-green-900/10 p-6 rounded-3xl border border-green-100 dark:border-green-900/30 mb-10 max-w-lg mx-auto text-center animate-fade";
     const daysWon = Math.floor((selectedVacation.end.getTime() - selectedVacation.start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    const spent = parseInt((document.getElementById('vacation-days-input') as HTMLInputElement).value);
+    const spent = Math.max(1, Math.min(999, parseInt((document.getElementById('vacation-days-input') as HTMLInputElement).value)));
     summary.innerHTML = `
       <div class="text-green-600 dark:text-green-400 font-bold text-sm uppercase tracking-widest mb-2">Periodo Seleccionado</div>
       <div class="text-2xl font-bold dark:text-white">Descansas ${daysWon} días</div>
@@ -316,7 +316,8 @@ import FloatingNav from '../components/FloatingNav.astro';
   }
 
   function refreshVacationAnalysis() {
-    const days = parseInt((document.getElementById('vacation-days-input') as HTMLInputElement).value) || 15;
+    let days = parseInt((document.getElementById('vacation-days-input') as HTMLInputElement).value) || 15;
+    days = Math.max(1, Math.min(999, days));
     const topResults = calculateTopVacations(currentYear, days);
     const container = document.getElementById('vacation-results')!;
     const title = document.getElementById('vacation-results-title')!;

@@ -16,7 +16,7 @@
         Ingresa el número de días de vacaciones acumuladas
       </label>
       <div class="flex gap-4 mb-6">
-        <input type="number" id="vacation-days-input" value="15" min="1" max="60" class="ios-input text-2xl font-bold w-32">
+        <input type="number" id="vacation-days-input" value="15" min="1" max="999" maxlength="3" class="ios-input text-2xl font-bold w-32" oninput="if(this.value.length > 3) this.value = this.value.slice(0,3);">
         <div class="flex-1 text-sm text-gray-500 leading-tight flex items-center">
           Calculamos las mejores opciones o elige tú mismo el inicio.
         </div>
