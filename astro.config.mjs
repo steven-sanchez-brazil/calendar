@@ -4,7 +4,7 @@ import tailwind from '@astrojs/tailwind';
 
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://steven-sanchez-brazil.github.io',
-  base: '/calendar',
+  site: 'https://calendariofestivosai.com',
+  base: '/',
   integrations: [tailwind()]
 });
